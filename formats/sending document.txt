@@ -1,0 +1,48 @@
+#sending_document
+
+
+
+
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "356955237510870",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "918745097126",
+              "phone_number_id": "432038163320755"
+            },
+            "contacts": [
+              {
+                "profile": {
+                  "name": "Rj"
+                },
+                "wa_id": "918279486865"
+              }
+            ],
+            "messages": [
+              {
+                "from": "918279486865",
+                "id": "wamid.HBgMOTE4Mjc5NDg2ODY1FQIAEhggQUM2ODRDQTIyMjVEQkVGQzNDNkM1MjEzREVBNUY1OUUA",
+                "timestamp": "1766385465",
+                "type": "document",
+                "document": {
+                  "filename": "Deepfake Video Face Detection using Deep Learning -Formatted Paper.pdf",
+                  "mime_type": "application/pdf",
+                  "sha256": "41cuvIKWgr2puK4VIFX6mR0TqePd5ACWDgVjT+USe4Y=",
+                  "id": "871388365588153",
+                  "url": "https://lookaside.fbsbx.com/whatsapp_business/attachments/?mid=871388365588153&source=webhook&ext=1766385767&hash=ARn_KyUu6Bz7NsSgTdPFAiW1CR8uAyBdU4tbRsogi39FFQ"
+                }
+              }
+            ]
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}

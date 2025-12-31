@@ -1,0 +1,42 @@
+#call_termination
+
+
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "356955237510870",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "918745097126",
+              "phone_number_id": "432038163320755"
+            },
+            "contacts": [
+              {
+                "profile": {
+                  "name": "Anil Bansal"
+                },
+                "wa_id": "919313155788"
+              }
+            ],
+            "calls": [
+              {
+                "id": "wacid.HBgPMjQyMjEwNTE5OTY1OTUxFRIAEhggRTE4NkQ1RkRGNjVFQUQzRkUyNjI0RDY0NTQ2NzJDNjIcGAw5MTg3NDUwOTcxMjYVAgAVBgA=",
+                "from": "919313155788",
+                "to": "918745097126",
+                "event": "terminate",
+                "timestamp": "1766385841",
+                "direction": "USER_INITIATED",
+                "status": "COMPLETED"
+              }
+            ]
+          },
+          "field": "calls"
+        }
+      ]
+    }
+  ]
+}

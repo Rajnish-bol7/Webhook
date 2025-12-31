@@ -1,0 +1,45 @@
+#call_completed
+
+
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "356955237510870",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "918745097126",
+              "phone_number_id": "432038163320755"
+            },
+            "contacts": [
+              {
+                "profile": {
+                  "name": "Rj"
+                },
+                "wa_id": "918279486865"
+              }
+            ],
+            "calls": [
+              {
+                "id": "wacid.HBgPMTg2MDE5NDEyNDcxODcwFRIAEhggQUNDQzE0MUM4RDQ2OTUzOURGMTJFNUY1MjhDMDBEQjEcGAw5MTg3NDUwOTcxMjYVAgAVCgA=",
+                "from": "918279486865",
+                "to": "918745097126",
+                "event": "terminate",
+                "timestamp": "1766583913",
+                "direction": "USER_INITIATED",
+                "start_time": "1766583852",
+                "end_time": "1766583912",
+                "duration": 60,
+                "status": "COMPLETED"
+              }
+            ]
+          },
+          "field": "calls"
+        }
+      ]
+    }
+  ]
+}
