@@ -30,6 +30,12 @@ CSRF_TRUSTED_ORIGINS = config(
 # WhatsApp Webhook Verification Token (set this in Meta App Dashboard)
 WHATSAPP_VERIFY_TOKEN = config('WHATSAPP_VERIFY_TOKEN', default='your_verify_token_here')
 
+# WhatsApp Business API Configuration (for sending messages)
+WHATSAPP_ACCESS_TOKEN = config('WHATSAPP_ACCESS_TOKEN', default='')
+WHATSAPP_PHONE_NUMBER_ID = config('WHATSAPP_PHONE_NUMBER_ID', default='')
+WHATSAPP_API_VERSION = config('WHATSAPP_API_VERSION', default='v21.0')
+WHATSAPP_API_BASE_URL = f'https://graph.facebook.com/{WHATSAPP_API_VERSION}'
+
 # Application definition
 
 INSTALLED_APPS = [

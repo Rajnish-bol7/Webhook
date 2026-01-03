@@ -155,3 +155,102 @@ class WhatsAppCall(models.Model):
     
     def __str__(self):
         return f"{self.from_number} -> {self.to_number} | {self.event} | {self.status or 'N/A'} | {self.created_at}"
+
+
+class WhatsAppMessageStatus(models.Model):
+    """Model to store message status updates (sent/delivered/read/failed) for outgoing messages"""
+    
+    STATUS_TYPES = [
+        ('sent', 'Sent'),
+        ('delivered', 'Delivered'),
+        ('read', 'Read'),
+        ('failed', 'Failed'),
+    ]
+    
+    # Status identification
+    message_id = models.CharField(max_length=255, help_text="ID of the message this status refers to")
+    status = models.CharField(max_length=20, choices=STATUS_TYPES, help_text="Message status")
+    recipient_id = models.CharField(max_length=50, help_text="Phone number of the recipient")
+    
+    # Conversation information
+    conversation_id = models.CharField(max_length=255, blank=True, null=True, help_text="Conversation ID")
+    conversation_expiration_timestamp = models.CharField(max_length=50, blank=True, null=True, help_text="Conversation expiration timestamp")
+    conversation_origin_type = models.CharField(max_length=50, blank=True, null=True, help_text="Origin type (service/user)")
+    
+    # Pricing information
+    is_billable = models.BooleanField(default=False, help_text="Whether the message is billable")
+    pricing_model = models.CharField(max_length=50, blank=True, null=True, help_text="Pricing model (e.g., PMP)")
+    pricing_category = models.CharField(max_length=50, blank=True, null=True, help_text="Pricing category (e.g., service)")
+    pricing_type = models.CharField(max_length=100, blank=True, null=True, help_text="Pricing type (e.g., free_customer_service)")
+    
+    # Metadata
+    timestamp = models.CharField(max_length=50, help_text="Status timestamp")
+    phone_number_id = models.CharField(max_length=100, help_text="Meta's phone number ID")
+    display_phone_number = models.CharField(max_length=50, help_text="Display phone number")
+    
+    # Raw payload for reference
+    raw_payload = models.JSONField(default=dict, help_text="Complete status payload")
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['message_id', '-created_at']),
+            models.Index(fields=['status']),
+            models.Index(fields=['recipient_id', '-created_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.recipient_id} | {self.status} | Message: {self.message_id[:20]}... | {self.created_at}"
+
+
+class WhatsAppOutgoingMessage(models.Model):
+    """Model to track outgoing messages we send"""
+    
+    MESSAGE_TYPES = [
+        ('text', 'Text'),
+        ('template', 'Template'),
+        ('image', 'Image'),
+        ('video', 'Video'),
+        ('document', 'Document'),
+        ('audio', 'Audio'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('sent', 'Sent'),
+        ('delivered', 'Delivered'),
+        ('read', 'Read'),
+        ('failed', 'Failed'),
+    ]
+    
+    # Message identification
+    message_id = models.CharField(max_length=255, unique=True, blank=True, null=True, help_text="WhatsApp message ID returned from API")
+    to_number = models.CharField(max_length=50, help_text="Recipient phone number")
+    
+    # Message content
+    message_type = models.CharField(max_length=20, choices=MESSAGE_TYPES, default='text')
+    message_text = models.TextField(help_text="Message content")
+    
+    # Status tracking
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', help_text="Current message status")
+    api_response = models.JSONField(blank=True, null=True, help_text="Response from WhatsApp API")
+    error_message = models.TextField(blank=True, null=True, help_text="Error message if sending failed")
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    sent_at = models.DateTimeField(blank=True, null=True, help_text="When message was successfully sent")
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['to_number', '-created_at']),
+            models.Index(fields=['status']),
+            models.Index(fields=['message_id']),
+        ]
+    
+    def __str__(self):
+        return f"{self.to_number} | {self.status} | {self.message_text[:30]}... | {self.created_at}"

@@ -5,11 +5,13 @@ from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.utils.decorators import method_decorator
+from django.utils import timezone
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from rest_framework import status
-from .models import WhatsAppMessage, WhatsAppCall
+from rest_framework import status as http_status
+from .models import WhatsAppMessage, WhatsAppCall, WhatsAppMessageStatus, WhatsAppOutgoingMessage
 from .serializers import WhatsAppWebhookSerializer
+from .services import send_whatsapp_message
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +54,7 @@ def whatsapp_webhook(request):
             entries = data.get('entry', [])
             processed_messages = []
             processed_calls = []
+            processed_statuses = []
             
             for entry in entries:
                 changes = entry.get('changes', [])
@@ -60,20 +63,31 @@ def whatsapp_webhook(request):
                     value = change.get('value', {})
                     field = change.get('field')
                     
-                    # Handle messages
+                    # Handle messages field (can contain messages OR statuses)
                     if field == 'messages':
-                        messages = value.get('messages', [])
-                        contacts = value.get('contacts', [])
                         metadata = value.get('metadata', {})
                         
-                        # Create a mapping of wa_id to contact info
-                        contact_map = {contact.get('wa_id'): contact for contact in contacts}
+                        # Check for incoming messages
+                        messages = value.get('messages', [])
+                        if messages:
+                            contacts = value.get('contacts', [])
+                            # Create a mapping of wa_id to contact info
+                            contact_map = {contact.get('wa_id'): contact for contact in contacts}
+                            
+                            # Process each message
+                            for message in messages:
+                                message_data = process_message(message, contact_map, metadata, entry.get('id'))
+                                if message_data:
+                                    processed_messages.append(message_data)
                         
-                        # Process each message
-                        for message in messages:
-                            message_data = process_message(message, contact_map, metadata, entry.get('id'))
-                            if message_data:
-                                processed_messages.append(message_data)
+                        # Check for message status updates (sent/delivered/read/failed)
+                        statuses = value.get('statuses', [])
+                        if statuses:
+                            # Process each status update
+                            for status_update in statuses:
+                                status_data = process_message_status(status_update, metadata)
+                                if status_data:
+                                    processed_statuses.append(status_data)
                     
                     # Handle calls
                     elif field == 'calls':
@@ -94,12 +108,15 @@ def whatsapp_webhook(request):
                 'status': 'success',
                 'messages_processed': len(processed_messages),
                 'calls_processed': len(processed_calls),
+                'statuses_processed': len(processed_statuses),
             }
             
             if processed_messages:
                 response_data['message_ids'] = [msg.message_id for msg in processed_messages]
             if processed_calls:
                 response_data['call_ids'] = [call.call_id for call in processed_calls]
+            if processed_statuses:
+                response_data['status_ids'] = [s.message_id for s in processed_statuses]
             
             return JsonResponse(response_data, status=200)
             
@@ -330,3 +347,144 @@ def process_call(call, contact_map, metadata):
     except Exception as e:
         logger.error(f"Error processing call event: {str(e)}", exc_info=True)
         return None
+
+
+def process_message_status(status_update, metadata):
+    """
+    Process a message status update (sent/delivered/read/failed) and save it to the database.
+    
+    Args:
+        status_update: The status object from the webhook
+        metadata: Metadata containing phone_number_id and display_phone_number
+    
+    Returns:
+        WhatsAppMessageStatus instance if created successfully, None otherwise
+    """
+    try:
+        message_id = status_update.get('id')
+        status_type = status_update.get('status')
+        recipient_id = status_update.get('recipient_id')
+        timestamp = status_update.get('timestamp')
+        
+        # Conversation information
+        conversation = status_update.get('conversation', {})
+        conversation_id = conversation.get('id')
+        conversation_expiration_timestamp = conversation.get('expiration_timestamp')
+        conversation_origin = conversation.get('origin', {})
+        conversation_origin_type = conversation_origin.get('type')
+        
+        # Pricing information
+        pricing = status_update.get('pricing', {})
+        is_billable = pricing.get('billable', False)
+        pricing_model = pricing.get('pricing_model')
+        pricing_category = pricing.get('category')
+        pricing_type = pricing.get('type')
+        
+        # Create status record (allow multiple statuses for same message_id - sent, delivered, read)
+        status_obj = WhatsAppMessageStatus.objects.create(
+            message_id=message_id,
+            status=status_type,
+            recipient_id=recipient_id,
+            conversation_id=conversation_id,
+            conversation_expiration_timestamp=conversation_expiration_timestamp,
+            conversation_origin_type=conversation_origin_type,
+            is_billable=is_billable,
+            pricing_model=pricing_model,
+            pricing_category=pricing_category,
+            pricing_type=pricing_type,
+            timestamp=timestamp,
+            phone_number_id=metadata.get('phone_number_id', ''),
+            display_phone_number=metadata.get('display_phone_number', ''),
+            raw_payload=status_update,
+        )
+        
+        logger.info(f"Message status saved: {message_id} | {status_type} | to {recipient_id}")
+        
+        # Here you can add logic based on status
+        # For example: if status == 'failed', trigger retry logic
+        # if status == 'read', update conversation analytics
+        
+        return status_obj
+        
+    except Exception as e:
+        logger.error(f"Error processing message status: {str(e)}", exc_info=True)
+        return None
+
+
+@api_view(['POST'])
+def send_message(request):
+    """
+    API endpoint to send WhatsApp messages
+    
+    POST /api/send-message/
+    {
+        "to": "918279486865",
+        "message": "Hello! How can I help?"
+    }
+    
+    Response:
+    {
+        "success": true,
+        "message_id": "wamid.xxx",
+        "outgoing_message_id": 1
+    }
+    """
+    to_number = request.data.get('to')
+    message_text = request.data.get('message')
+    
+    if not to_number or not message_text:
+        return Response(
+            {'error': 'Missing required fields: to, message'},
+            status=http_status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Validate phone number format (basic check)
+    if not to_number.isdigit():
+        return Response(
+            {'error': 'Invalid phone number format. Should contain only digits with country code.'},
+            status=http_status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Create pending message record
+    outgoing_msg = WhatsAppOutgoingMessage.objects.create(
+        to_number=to_number,
+        message_type='text',
+        message_text=message_text,
+        status='pending'
+    )
+    
+    # Send message via WhatsApp API
+    result = send_whatsapp_message(to_number, message_text)
+    
+    if result['success']:
+        # Update message record with success
+        outgoing_msg.message_id = result['message_id']
+        outgoing_msg.status = 'sent'
+        outgoing_msg.api_response = result.get('response')
+        outgoing_msg.sent_at = timezone.now()
+        outgoing_msg.save()
+        
+        logger.info(f"Outgoing message saved: ID {outgoing_msg.id}, WhatsApp ID {result['message_id']}")
+        
+        return Response({
+            'success': True,
+            'message_id': result['message_id'],
+            'outgoing_message_id': outgoing_msg.id,
+            'status': 'sent'
+        }, status=http_status.HTTP_200_OK)
+    
+    else:
+        # Update message record with failure
+        outgoing_msg.status = 'failed'
+        outgoing_msg.error_message = result.get('error')
+        outgoing_msg.api_response = result.get('response')
+        outgoing_msg.save()
+        
+        logger.error(f"Failed to send message: {result.get('error')}")
+        
+        return Response({
+            'success': False,
+            'error': result.get('error'),
+            'outgoing_message_id': outgoing_msg.id,
+            'status': 'failed'
+        }, status=http_status.HTTP_500_INTERNAL_SERVER_ERROR)
