@@ -140,7 +140,7 @@ unprocessed = WhatsAppMessage.objects.filter(processed=False)
 
 # Get latest messages from a specific user
 messages = WhatsAppMessage.objects.filter(
-    from_number='918279486865'
+    from_number='911234567890'
 ).order_by('-created_at')
 
 # Process a message
@@ -202,7 +202,7 @@ def handle_message_response(message_obj):
     "changes": [{
       "value": {
         "messages": [{
-          "from": "918279486865",
+          "from": "911234567890",
           "id": "wamid.xxx",
           "timestamp": "1766216432",
           "type": "text",
@@ -222,7 +222,7 @@ def handle_message_response(message_obj):
     "changes": [{
       "value": {
         "messages": [{
-          "from": "918279486865",
+          "from": "911234567890",
           "id": "wamid.xxx",
           "timestamp": "1766216635",
           "type": "audio",
